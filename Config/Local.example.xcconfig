@@ -1,0 +1,9 @@
+// Copy to Local.xcconfig (git-ignored) to turn on iCloud sync.
+//
+// Needs a paid Apple Developer account. In the developer portal, create an iCloud container with the
+// id below and enable iCloud (CloudKit) for the App ID. Xcode's automatic signing does the rest.
+
+DEVELOPMENT_TEAM = ABCDE12345
+PRODUCT_BUNDLE_IDENTIFIER = com.example.TaskSync
+CLOUDKIT_CONTAINER = iCloud.com.example.TaskSync
+CODE_SIGN_ENTITLEMENTS = Config/TaskSync.entitlements

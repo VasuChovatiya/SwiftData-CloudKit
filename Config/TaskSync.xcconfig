@@ -1,0 +1,11 @@
+// Build settings for the TaskSync app target.
+//
+// Out of the box the app stores data on the device only, and builds and runs without a signing team.
+// iCloud sync needs a paid Apple Developer account and an iCloud container: copy
+// Local.example.xcconfig to Local.xcconfig (git-ignored) and fill it in.
+
+PRODUCT_BUNDLE_IDENTIFIER = com.vasuchovatiya.TaskSync
+CLOUDKIT_CONTAINER = iCloud.com.vasuchovatiya.TaskSync
+CODE_SIGN_ENTITLEMENTS =
+
+#include? "Local.xcconfig"
