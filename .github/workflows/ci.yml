@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    container: ghcr.io/realm/swiftlint:0.65.1
+    steps:
+      - uses: actions/checkout@v7
+      - name: SwiftLint
+        run: swiftlint lint --strict --reporter github-actions-logging
+
+  test:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      # Prefer a simulator whose runtime matches the SDK.
+      - name: Pick an iPhone simulator
+        run: |
+          xcodebuild -version
+          sdk=$(xcrun --sdk iphonesimulator --show-sdk-version)
+          echo "Simulator SDK: $sdk"
+          udid=$(xcrun simctl list devices available -j | jq -r --arg rt "iOS-${sdk//./-}" --arg major "iOS-${sdk%%.*}-" '
+            [.devices | to_entries[] | select(.key | contains("iOS")) | .value[] as $d
+              | select($d.name | startswith("iPhone")) | {key, udid: $d.udid}]
+            | (map(select(.key | endswith($rt))) | last)
+              // (map(select(.key | contains($major))) | last)
+              // last
+            | .udid')
+          if [ -z "$udid" ] || [ "$udid" = "null" ]; then
+            echo "No available iPhone simulator" >&2
+            xcrun simctl list devices available
+            exit 1
+          fi
+          echo "Using simulator $udid"
+          echo "DESTINATION=id=$udid" >> "$GITHUB_ENV"
+
+      # No Local.xcconfig here, so the app builds without entitlements or a signing team and stores data
+      # on the device only.
+      - name: Build for testing
+        run: |
+          xcodebuild build-for-testing \
+            -project TaskSync.xcodeproj -scheme TaskSync \
+            -destination "$DESTINATION" \
+            -derivedDataPath DerivedData
+
+      - name: Unit tests
+        run: |
+          xcodebuild test-without-building \
+            -project TaskSync.xcodeproj -scheme TaskSync \
+            -destination "$DESTINATION" \
+            -derivedDataPath DerivedData \
+            -only-testing:TaskSyncTests
+
+      - name: UI smoke tests
+        run: |
+          xcodebuild test-without-building \
+            -project TaskSync.xcodeproj -scheme TaskSync \
+            -destination "$DESTINATION" \
+            -derivedDataPath DerivedData \
+            -only-testing:TaskSyncUITests/TaskSyncUITests \
+            -parallel-testing-enabled NO
